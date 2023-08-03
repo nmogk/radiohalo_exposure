@@ -8,6 +8,7 @@ tau = 2*np.math.pi
 # Windows python can only support a smallest radius to 1e-11 before losing precision. Actual radius has exponent of -15
 alphaRadius = 1.67824e-9/2 # Radius of alpha particle 1.67824(83) femtometers
 biotiteFlakeThickness = 3e-6
+visibility_dose = 1.5e13 # alpha particles/cm2
 
 radiumAlphaDecays = [
     ('238U', 4.26, colors.to_rgb('k'),                  '', 0., 0., colors.to_rgb('k')),
@@ -40,7 +41,7 @@ thoriumAlphaDecays = [
 ]
 
 # Current conversion factor 7.83 MeV corresponds to 40 microns diameter
-conversion_factor = 50000 # Conversion between physical units and the assumed energy level distances. Needs to be calibrated
+radiusNormalizationFactor = 280000 # MeV/m Conversion between physical units and the assumed energy level distances. Needs to be calibrated
 
 # ===============CONTROLS===============
 
@@ -58,7 +59,6 @@ print('Start: {}'.format(time.asctime(time.localtime(start_time))))
 
 _, energies, colors, _, ratios, alt_energies, alt_colors = zip(*decayList)
 
-radiusNormalizationFactor = 7.83 * conversion_factor # MeV, using the decay energy as proxy for size
 maxHaloRadius = np.max(energies)/radiusNormalizationFactor # in micrometers
 
 def solidAngle(sphere_radius, cap_radius):
