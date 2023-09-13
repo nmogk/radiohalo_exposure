@@ -9,6 +9,8 @@ tau = 2*np.math.pi
 alphaRadius = 1.67824e-9/2 # Radius of alpha particle 1.67824(83) femtometers
 biotiteFlakeThickness = 3e-6
 visibility_dose = 1.5e13 # alpha particles/cm2
+overexposure_dose = 1e14 # alpha particles/cm2 Currently a WAG. need data
+bleach_dose = 1e15 # alpha particles/cm2 Currently a WAG. need data
 
 radiumAlphaDecays = [
     ('238U', 4.26, colors.to_rgb('k'),                  '', 0., 0., colors.to_rgb('k')),
@@ -40,12 +42,12 @@ thoriumAlphaDecays = [
     ('212Po', 8.95, colors.to_rgb('r'),                  '212Bi', 0.3594, 6.20, colors.to_rgb('xkcd:lavender'))
 ]
 
-# Current conversion factor 7.83 MeV corresponds to 40 microns diameter
+# Current conversion factor 7.83 MeV corresponds to 28 microns radius
 radiusNormalizationFactor = 280000 # MeV/m Conversion between physical units and the assumed energy level distances. Needs to be calibrated
 
 # ===============CONTROLS===============
 
-decayList = thoriumAlphaDecays[-3:]
+decayList = radiumAlphaDecays[:]
 iterations = 10000
 colorify = True
 flakeNumber = 0
@@ -192,7 +194,7 @@ def slicePlot():
 
 def damageByRadiusPlot():
 
-    r = np.linspace(1/conversion_factor, 0, 300, endpoint=False, dtype=np.longdouble) # Radii included in halo, exclude 0, include maxHaloRadius
+    r = np.linspace(np.max(energies_normalized), 0, 300, endpoint=False, dtype=np.longdouble) # Radii included in halo, exclude 0, include maxHaloRadius
 
     if alternateDecays:
         energy_list = np.concatenate((energies_normalized, alt_energies_normalized))
@@ -218,9 +220,35 @@ def damageByRadiusPlot():
     ax.set_ylabel('Single nucleon chain decay area [sr]')
     return ax
 
+def thresholdAgePlot(threshold):
+    r = np.linspace(np.max(energies_normalized), 0, 300, endpoint=False, dtype=np.longdouble) # Radii included in halo, exclude 0, include maxHaloRadius
+
+    if alternateDecays:
+        energy_list = np.concatenate((energies_normalized, alt_energies_normalized))
+        weights = np.concatenate((np.ones_like(ratios) - ratios, ratios))
+
+    else:
+        energy_list = energies_normalized
+        weights = np.ones_like(energies_normalized)
+
+    multiplier = np.sum((np.broadcast_to(energy_list, (len(r), len(energy_list))).T > r).T * weights , axis=-1) 
+    shell_area = 2*tau*np.square(r)
+
+    counts = threshold * (shell_area[multiplier > 0]/multiplier[multiplier > 0])
+    # age = counts/(mean life * number of P atoms)
+
+    fig = plt.figure()
+    ax = fig.add_subplot()
+    ax.scatter(r[multiplier > 0], counts, s=2)
+    ax.set_yscale('log')
+    ax.set_title('Decays vs visibility radius ({})'.format(decayList[0][0]))
+    ax.set_ylabel('Decay count [a]')
+    return ax
+
 # spherePlot()
-slicePlot()
-damageByRadiusPlot()
+# slicePlot()
+# damageByRadiusPlot()
+thresholdAgePlot(visibility_dose)
 
 end_time = time.time()
 print('End: {}\nRuntime: {}'.format(time.asctime(time.localtime(end_time)), end_time - start_time))
