@@ -61,7 +61,7 @@ print('Start: {}'.format(time.asctime(time.localtime(start_time))))
 
 _, energies, colors, _, ratios, alt_energies, alt_colors = zip(*decayList)
 
-maxHaloRadius = np.max(energies)/radiusNormalizationFactor # in micrometers
+maxHaloRadius = np.max(energies)/radiusNormalizationFactor # in meters
 
 def solidAngle(sphere_radius, cap_radius):
     return tau * (1. - np.sqrt(1. - np.square(cap_radius/sphere_radius)))
@@ -192,63 +192,62 @@ def slicePlot():
         ax.add_patch(crystal_patch)
     return ax
 
-def damageByRadiusPlot():
+def xByRadiusPlot(title, xdata, ydata, ylabel, xlabel = 'radius [m]'):
+    fig = plt.figure()
+    ax = fig.add_subplot()
+    ax.scatter(xdata, ydata, s=2)
+    ax.set_yscale('log')
+    ax.set_title(title)
+    ax.set_ylabel(ylabel)
+    ax.set_xlabel(xlabel)
+    return ax
 
-    r = np.linspace(np.max(energies_normalized), 0, 300, endpoint=False, dtype=np.longdouble) # Radii included in halo, exclude 0, include maxHaloRadius
+def decayChainMultiplier(r):
+    '''Calculate the number of decays above a given radius (energy) occur due to a single atom decay from parent to ultimate daughter in a decay chain.
+    Output is an array like the input array of radii with a positive integer representing the number of decays in the chain sufficient to achieve each radius.
+    Or if alternate decay pathways are considered, then the contribution of each decay path is weighted by its branching ratio, leading to decimal weights.
+    '''
 
-    if alternateDecays:
+    if alternateDecays: 
         energy_list = np.concatenate((energies_normalized, alt_energies_normalized))
         weights = np.concatenate((np.ones_like(ratios) - ratios, ratios))
 
     else:
         energy_list = energies_normalized
-        weights = np.ones_like(energies_normalized)
+        weights = np.ones_like(energies_normalized) # Weights are all one when not considering alternate decay pathways
 
-    multiplier = np.sum((np.broadcast_to(energy_list, (len(r), len(energy_list))).T > r).T * weights , axis=-1) 
+    # Checks each given radius against each energy level, then adds the results for all possible decays.
+    return np.sum((np.broadcast_to(energy_list, (len(r), len(energy_list))).T > r).T * weights , axis=-1)
+
+def damageByRadiusPlot():
+
+    r = np.linspace(np.max(energies_normalized), 0, 300, endpoint=False, dtype=np.longdouble) # Radii included in halo, exclude 0, include maxHaloRadius
+
+    multiplier = decayChainMultiplier(r)
     singleDecayDamage = solidAngle(r, alphaRadius)
     damageArea = multiplier * singleDecayDamage
     correctedDamageArea = damageArea[damageArea > 0]
     # capHeight = damageArea * r/tau
     
     nonOverlappingCalibrationCurve = np.divide(np.min(correctedDamageArea), correctedDamageArea)
-    
-    fig = plt.figure()
-    ax = fig.add_subplot()
-    ax.scatter(r[damageArea > 0], correctedDamageArea, s=2)
-    ax.set_yscale('log')
-    ax.set_title('Damage factor vs radius from center ({})'.format(decayList[0][0]))
-    ax.set_ylabel('Single nucleon chain decay area [sr]')
-    return ax
+
+    return xByRadiusPlot('Damage factor vs radius from center ({})'.format(decayList[0][0]), r[damageArea > 0], correctedDamageArea, 'Single nucleon chain decay area [sr]')
 
 def thresholdAgePlot(threshold):
     r = np.linspace(np.max(energies_normalized), 0, 300, endpoint=False, dtype=np.longdouble) # Radii included in halo, exclude 0, include maxHaloRadius
 
-    if alternateDecays:
-        energy_list = np.concatenate((energies_normalized, alt_energies_normalized))
-        weights = np.concatenate((np.ones_like(ratios) - ratios, ratios))
-
-    else:
-        energy_list = energies_normalized
-        weights = np.ones_like(energies_normalized)
-
-    multiplier = np.sum((np.broadcast_to(energy_list, (len(r), len(energy_list))).T > r).T * weights , axis=-1) 
+    multiplier = decayChainMultiplier(r)
     shell_area = 2*tau*np.square(r)
 
     counts = threshold * (shell_area[multiplier > 0]/multiplier[multiplier > 0])
     # age = counts/(mean life * number of P atoms)
 
-    fig = plt.figure()
-    ax = fig.add_subplot()
-    ax.scatter(r[multiplier > 0], counts, s=2)
-    ax.set_yscale('log')
-    ax.set_title('Decays vs visibility radius ({})'.format(decayList[0][0]))
-    ax.set_ylabel('Decay count [a]')
-    return ax
+    return xByRadiusPlot('Decays vs visibility radius ({})'.format(decayList[0][0]), r[multiplier > 0], counts, 'Decay count [a]')
 
 # spherePlot()
 # slicePlot()
-# damageByRadiusPlot()
-thresholdAgePlot(visibility_dose)
+damageByRadiusPlot()
+thresholdAgePlot(visibility_dose*1e4)
 
 end_time = time.time()
 print('End: {}\nRuntime: {}'.format(time.asctime(time.localtime(end_time)), end_time - start_time))
