@@ -5,13 +5,14 @@ import time
 
 # ===============CONSTANTS===============
 tau = 2*np.math.pi
-# Windows python can only support a smallest radius to 1e-11 before losing precision. Actual radius has exponent of -15
-alphaRadius = 1.67824e-9/2 # Radius of alpha particle 1.67824(83) femtometers
-biotiteFlakeThickness = 3e-6
+# Windows python can only support a smallest radius to 1e-11m before losing precision. Actual radius has exponent of -15
+alphaRadius = 1.67824e-6/2 #um Radius of alpha particle 1.67824(83) femtometers
+biotiteFlakeThickness = 3 #μm
 visibility_dose = 1.5e13 # alpha particles/cm2
 overexposure_dose = 1e14 # alpha particles/cm2 Currently a WAG. need data
-bleach_dose = 1e15 # alpha particles/cm2 Currently a WAG. need data
+bleach_dose = 1.6e14 # alpha particles/cm2 Currently a WAG. need data
 
+# (Parent label, decay energy [MeV], display_color, alt label, branching fraction, alt decay energy [MeV], alt display color)
 radiumAlphaDecays = [
     ('238U', 4.26, colors.to_rgb('k'),                  '', 0., 0., colors.to_rgb('k')),
     ('234U', 4.85, colors.to_rgb('xkcd:electric green'),'', 0., 0., colors.to_rgb('k')),
@@ -43,7 +44,7 @@ thoriumAlphaDecays = [
 ]
 
 # Current conversion factor 7.83 MeV corresponds to 28 microns radius
-radiusNormalizationFactor = 280000 # MeV/m Conversion between physical units and the assumed energy level distances. Needs to be calibrated
+radiusNormalizationFactor = 0.280000 # MeV/μm Conversion between physical units and the assumed energy level distances. Needs to be calibrated
 
 # ===============CONTROLS===============
 
@@ -61,44 +62,44 @@ print('Start: {}'.format(time.asctime(time.localtime(start_time))))
 
 _, energies, colors, _, ratios, alt_energies, alt_colors = zip(*decayList)
 
-maxHaloRadius = np.max(energies)/radiusNormalizationFactor # in meters
+maxHaloRadius = np.max(energies)/radiusNormalizationFactor # in micrometers
 
 def solidAngle(sphere_radius, cap_radius):
     return tau * (1. - np.sqrt(1. - np.square(cap_radius/sphere_radius)))
 
-def area2rho(area):
-    return 2*np.arcsin(np.sqrt(area/(2*tau))) # Spherical radius of cap
+# def area2rho(area):
+#     return 2*np.arcsin(np.sqrt(area/(2*tau))) # Spherical radius of cap
 
-def rad2rho(sphere_radius, cap_radius):
-    return np.arcsin(cap_radius/sphere_radius)
+# def rad2rho(sphere_radius, cap_radius):
+#     return np.arcsin(cap_radius/sphere_radius)
 
-def intersectionMagnitude(rho, separation):
-    return np.maximum(0., 1. - separation/(2. * rho))
+# def intersectionMagnitude(rho, separation):
+#     return np.maximum(0., 1. - separation/(2. * rho))
 
-def greatCircleDistance(normal1, normal2):
-    return np.arctan(np.norm(np.cross(normal1, normal2))/np.dot(normal1, normal2))
+# def greatCircleDistance(normal1, normal2):
+#     return np.arctan(np.norm(np.cross(normal1, normal2))/np.dot(normal1, normal2))
 
-def capIntersection(rho, separation):
-    # Solution from https://math.stackexchange.com/questions/45788/calculate-the-area-on-a-sphere-of-the-intersection-of-two-spherical-caps
+# def capIntersection(rho, separation):
+#     # Solution from https://math.stackexchange.com/questions/45788/calculate-the-area-on-a-sphere-of-the-intersection-of-two-spherical-caps
 
-    # spherical cap sector
-    intersect_length = np.arccos(np.cos(rho)/np.cos(separation/2))
-    alpha = 2 * np.arcsin(np.sin(intersect_length)/np.sin(rho))
-    beta = np.arctan(1/(np.tan(alpha/2) * np.cos(rho)))
+#     # spherical cap sector
+#     intersect_length = np.arccos(np.cos(rho)/np.cos(separation/2))
+#     alpha = 2 * np.arcsin(np.sin(intersect_length)/np.sin(rho))
+#     beta = np.arctan(1/(np.tan(alpha/2) * np.cos(rho)))
 
-    return np.maximum(0., 2 * (2 * alpha * np.square(np.sin(rho/2)) - (alpha + 2 * beta - tau/2))) # Two spherical cap sectors less two sperical triangles
+#     return np.maximum(0., 2 * (2 * alpha * np.square(np.sin(rho/2)) - (alpha + 2 * beta - tau/2))) # Two spherical cap sectors less two sperical triangles
 
-def intersectionLUT(lut_precision):
-    rho = area2rho(1)
-    lut_separation = np.linspace(0, 2*rho, 10**lut_precision+1)
-    lut_ratios = np.around(intersectionMagnitude(rho, lut_separation), decimals=lut_precision)
-    overlap_lut = capIntersection(area2rho(1), lut_separation)
-    lut = dict(zip(list(lut_ratios), overlap_lut))
+# def intersectionLUT(lut_precision):
+#     rho = area2rho(1)
+#     lut_separation = np.linspace(0, 2*rho, 10**lut_precision+1)
+#     lut_ratios = np.around(intersectionMagnitude(rho, lut_separation), decimals=lut_precision)
+#     overlap_lut = capIntersection(area2rho(1), lut_separation)
+#     lut = dict(zip(list(lut_ratios), overlap_lut))
 
-    def lookup(area, separation):
-        return np.array([area * lut[np.round(intersectionMagnitude(area2rho(area), x), decimals=lut_precision)] for x in separation])
+#     def lookup(area, separation):
+#         return np.array([area * lut[np.round(intersectionMagnitude(area2rho(area), x), decimals=lut_precision)] for x in separation])
     
-    return lookup
+#     return lookup
 
 def normalized(a, axis=-1, order=2):
     l2 = np.atleast_1d(np.linalg.norm(a, order, axis))
@@ -122,6 +123,8 @@ color_broadcast_shape = (iterations, len(decayList), 3)
 raw_points = np.empty(trials * 3, dtype=float).reshape(trials, 3) # Preallocate array for random numbers
 for i, x in enumerate(uniformSphericalGenerator(trials, seed=run_seed.spawn(1)[0])):
     raw_points[i,:] = x # Copy random points into preallocated array rows
+
+# raw_points are locations on a unit sphere. These need to be multiplied to get to the proper radius.
 
 energies_normalized = np.array(energies)/radiusNormalizationFactor # Normalize all halo distances so that the largest is at 1
 # Create multiple copies of the energies until it there are 'iterations' number of copies. First broadcast to a compatible broadcasting shape, then reshape
@@ -186,13 +189,14 @@ def slicePlot():
     ax.scatter(slice[:,0], slice[:,1], s=1, c=slice_colors, yunits='meters', xunits='meters')
     ax.set_title('{} Radiohalo Slice (flake {})'.format(decayList[0][0], flakeNumber))
 
-    crystal_patch = plt.Polygon([[0.e-6, 1.e-6], [-0.3e-6, 0.7e-6], [-0.3e-6, -0.7e-6], [0.e-6, -1.e-6], [0.3e-6, -0.7e-6], [0.3e-6, 0.7e-6]], edgecolor='k', facecolor='w', linewidth=2)
+    crystal_patch = plt.Polygon([[0., 1.], [-0.3, 0.7], [-0.3, -0.7], [0., -1.], [0.3, -0.7], [0.3, 0.7]], edgecolor='k', facecolor='w', linewidth=2)
     
     if flakeNumber == 0:
         ax.add_patch(crystal_patch)
     return ax
 
-def xByRadiusPlot(title, xdata, ydata, ylabel, xlabel = 'radius [m]'):
+def xByRadiusPlot(title, xdata, ydata, ylabel, xlabel = 'radius [μm]'):
+    '''Plot data assuming that x represents radius and that y data will be plotted on a log scale'''
     fig = plt.figure()
     ax = fig.add_subplot()
     ax.scatter(xdata, ydata, s=2)
@@ -247,7 +251,7 @@ def thresholdAgePlot(threshold):
 # spherePlot()
 # slicePlot()
 damageByRadiusPlot()
-thresholdAgePlot(visibility_dose*1e4)
+thresholdAgePlot(visibility_dose/1e8)
 
 end_time = time.time()
 print('End: {}\nRuntime: {}'.format(time.asctime(time.localtime(end_time)), end_time - start_time))
