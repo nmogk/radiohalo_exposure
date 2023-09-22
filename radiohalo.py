@@ -150,7 +150,7 @@ else:
     color_broadcast = main_color_broadcast.reshape(trials, 3)
 
 points = (energy_multiples * raw_points.T).T # Double transpose required for vertical vector to row multiplication. Very little time cost
-slice = points[np.abs(points[:,2]) - flakeNumber*biotiteFlakeThickness < biotiteFlakeThickness]
+slice = points[np.abs(points[:,2] - flakeNumber*biotiteFlakeThickness) < biotiteFlakeThickness]
 
 # Choosing colors for alternate decays
 point_colors = color_broadcast if colorify else 'xkcd:chocolate brown'
@@ -185,10 +185,11 @@ def slicePlot():
     fig = plt.figure()
     ax = fig.add_subplot()
     ax.set_aspect('equal')
-    slice_colors = point_colors[np.abs(points[:,2])- flakeNumber*biotiteFlakeThickness < biotiteFlakeThickness] if colorify else 'k'
+    slice_colors = point_colors[np.abs(points[:,2]- flakeNumber*biotiteFlakeThickness) < biotiteFlakeThickness] if colorify else 'k'
     ax.scatter(slice[:,0], slice[:,1], s=1, c=slice_colors, yunits='meters', xunits='meters')
     ax.set_title('{} Radiohalo Slice (flake {})'.format(decayList[0][0], flakeNumber))
-
+    ax.set_ylabel('[μm]')
+    ax.set_xlabel('[μm]')
     crystal_patch = plt.Polygon([[0., 1.], [-0.3, 0.7], [-0.3, -0.7], [0., -1.], [0.3, -0.7], [0.3, 0.7]], edgecolor='k', facecolor='w', linewidth=2)
     
     if flakeNumber == 0:
